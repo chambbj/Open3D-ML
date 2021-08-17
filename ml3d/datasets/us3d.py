@@ -64,7 +64,7 @@ class US3DSplit(BaseDatasetSplit):
             pc_path,
             {
                 "type":"filters.covariancefeatures"
-            },
+            # },
             # {
             #     "type":"filters.randomize"
             # },
@@ -72,9 +72,9 @@ class US3DSplit(BaseDatasetSplit):
             #     "type":"filters.head",
             #     "count":100
             # }
-            {
-                "type":"filters.sample",
-                "radius":2.0
+            # {
+            #     "type":"filters.sample",
+            #     "radius":1.0
             }
         ]))
         cnt = p.execute()
@@ -264,10 +264,28 @@ class US3D(BaseDataset):
         make_dir(path)
 
         pred = results['predict_labels']
-        pred = np.array(self.label_to_names[pred])
+        # pred = np.array(self.label_to_names[pred])
+        pred = np.array(pred)
 
         store_path = join(path, name + '.npy')
         np.save(store_path, pred)
 
+    def write_result(self, data, labels):
+        array = np.core.records.fromarrays(np.vstack((data.T,labels.T)),names='X,Y,Z,Classification',formats='f8,f8,f8,u1')
+        p = pdal.Pipeline(json.dumps([{
+            "type":"writers.las",
+            "filename":'/home/chambbj/data/sandbox/randlanet.laz',
+            # "offset_x":"auto",
+            # "offset_y":"auto",
+            # "offset_z":"auto",
+            # "scale_x":0.01,
+            # "scale_y":0.01,
+            # "scale_z":0.01
+            "forward":"all",
+            "minor_version":4,
+            "extra_dims":"all"
+            }]), [array])
+        p.validate()
+        p.execute()
 
 DATASET._register_module(US3D)
