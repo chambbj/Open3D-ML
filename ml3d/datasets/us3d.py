@@ -53,22 +53,32 @@ class US3DSplit(BaseDatasetSplit):
 
     def get_data(self, idx):
         pc_path = self.path_list[idx]
+        print("Reading {}".format(pc_path))
 
         p = pdal.Pipeline(json.dumps([
-            {
-                "type":"readers.text",
-                "header":"X,Y,Z,Intensity,ReturnNumber",
-                "filename":pc_path,
-            },
+            # {
+            #     "type":"readers.text",
+            #     "header":"X,Y,Z,Intensity,ReturnNumber",
+            #     "filename":pc_path,
+            # },
+            pc_path,
             {
                 "type":"filters.covariancefeatures"
             },
+            # {
+            #     "type":"filters.randomize"
+            # },
+            # {
+            #     "type":"filters.head",
+            #     "count":100
+            # }
             {
                 "type":"filters.sample",
-                "radius":5.0
+                "radius":2.0
             }
         ]))
-        p.execute()
+        cnt = p.execute()
+        print("Processed {} points".format(cnt))
 
         data = p.arrays[0]
         # data = np.load(pc_path)
@@ -80,8 +90,8 @@ class US3DSplit(BaseDatasetSplit):
         feat = np.vstack((data['Linearity'],data['Planarity'],data['Scattering'])).T.astype(np.float32)
 
         if (self.split != 'test'):
-            # labels = data['Classification'].astype(np.int32)
-            labels = np.genfromtxt(pc_path.replace("_PC3", "_CLS"), dtype=np.int32)
+            labels = data['Classification'].astype(np.int32)
+            # labels = np.genfromtxt(pc_path.replace("_PC3", "_CLS"), dtype=np.int32)
             labels[np.where(labels==2)]=1
             labels[np.where(labels==5)]=2
             labels[np.where(labels==6)]=3
@@ -156,9 +166,9 @@ class US3D(BaseDataset):
         self.val_dir = str(Path(cfg.dataset_path) / cfg.val_dir)
         self.test_dir = str(Path(cfg.dataset_path) / cfg.test_dir)
 
-        self.train_files = [f for f in glob.glob(self.train_dir + "/*PC3.txt")]
-        self.val_files = [f for f in glob.glob(self.val_dir + "/*PC3.txt")]
-        self.test_files = [f for f in glob.glob(self.test_dir + "/*PC3.txt")]
+        self.train_files = [f for f in glob.glob(self.train_dir + "/*.laz")]
+        self.val_files = [f for f in glob.glob(self.val_dir + "/*.laz")]
+        self.test_files = [f for f in glob.glob(self.test_dir + "/*.laz")]
 
     @staticmethod
     def get_label_to_names():
