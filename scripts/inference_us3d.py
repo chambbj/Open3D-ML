@@ -1,34 +1,103 @@
+import argparse
+import copy
 import os
 import open3d.ml as _ml3d
 import open3d.ml.tf as ml3d
+import pdal
+import json
+import numpy as np
+import yaml
+import sys
 
-cfg_file = "ml3d/configs/randlanet_us3d.yml"
-cfg = _ml3d.utils.Config.load_from_file(cfg_file)
+def parse_args():
+    parser = argparse.ArgumentParser(description='Predict labels')
+    parser.add_argument('input', help='file to predict labels for')
+    parser.add_argument('output', help='file with predicted labels')
+    parser.add_argument('-c', '--cfg_file', help='path to the config file')
+    parser.add_argument('--ckpt_path', help='path to the checkpoint')
 
-model = ml3d.models.RandLANet(**cfg.model)
-cfg.dataset['dataset_path'] = "/home/chambbj/data/ml-datasets/US3D/train-single-file-prototype-kpconv/"
-dataset = ml3d.datasets.US3D(cfg.dataset.pop('dataset_path', None), **cfg.dataset)
-pipeline = ml3d.pipelines.SemanticSegmentation(model, dataset=dataset, device="gpu", **cfg.pipeline)
+    args, unknown = parser.parse_known_args()
 
-# download the weights.
-# ckpt_folder = "./logs/"
-# os.makedirs(ckpt_folder, exist_ok=True)
-# ckpt_path = ckpt_folder + "randlanet_semantickitti_202009090354utc.pth"
-# randlanet_url = "https://storage.googleapis.com/open3d-releases/model-zoo/randlanet_semantickitti_202009090354utc.pth"
-# if not os.path.exists(ckpt_path):
-#     cmd = "wget {} -O {}".format(randlanet_url, ckpt_path)
-#     os.system(cmd)
+    parser_extra = argparse.ArgumentParser(description='Extra arguments')
+    for arg in unknown:
+        if arg.startswith(("-", "--")):
+            parser_extra.add_argument(arg)
+    args_extra = parser_extra.parse_args(unknown)
 
-# load the parameters.
-pipeline.load_ckpt(ckpt_path='logs/RandLANet_US3D_tf/checkpoint/ckpt-12')
+    print("regular arguments")
+    print(yaml.dump(vars(args)))
 
-test_split = dataset.get_split("test")
-data = test_split.get_data(0)
+    print("extra arguments")
+    print(yaml.dump(vars(args_extra)))
 
-# run inference on a single example.
-# returns dict with 'predict_labels' and 'predict_scores'.
-result = pipeline.run_inference(data)
-dataset.write_result(data['point'], result['predict_labels'])
+    return args, vars(args_extra)
 
-# evaluate performance on the test set; this will write logs to './logs'.
-# pipeline.run_test()
+def main():
+    cmd_line = ' '.join(sys.argv[:])
+    args, extra_dict = parse_args()
+
+    if args.cfg_file is not None:
+        # Config file can perhaps default, but we should accept as an arg.
+        # cfg_file = "ml3d/configs/randlanet_us3d.yml"
+        cfg = _ml3d.utils.Config.load_from_file(args.cfg_file)
+
+        # Surely we can determine this by inspecting the config. Is there a more general purpose way to load?
+        model = ml3d.models.RandLANet(**cfg.model)
+        # model = ml3d.models.KPFCNN(**cfg.model)
+
+        # Could we get away with None? How is it even used in this context? Nope, it's required.
+        cfg.dataset['dataset_path'] = "/path/to/dataset/"
+        # cfg.dataset['dataset_path'] = None
+
+        # Similarly, this assumes US3D. What happens when we change it? The config tells us what dataset is used.
+        dataset = ml3d.datasets.US3D(cfg.dataset.pop('dataset_path', None), **cfg.dataset)
+
+        pipeline = ml3d.pipelines.SemanticSegmentation(model, dataset=dataset, device="gpu", **cfg.pipeline)
+
+        # load the parameters.
+        if args.ckpt_path is not None:
+            # This can be an argument. In practice it's probably just a path to /u02 somewhere.
+            pipeline.load_ckpt(ckpt_path=args.ckpt_path)
+
+            # We could modify us3d.py, the US3D dataset, to have a method that reads directly from filename,
+            # so that we have one location for modifying how data is loaded. Maybe it's a really good idea to
+            # encode the pipeline in the config, so that the same pipeline used to train is used to infer.
+            # Regardless, the path should not be hardcoded. It will be provided as a parameter.
+            p = pdal.Pipeline(json.dumps([
+                args.input,
+                {
+                    "type":"filters.covariancefeatures"
+                }
+            ]))
+            cnt = p.execute()
+            # maybe log instead, and provide more information
+            print("Processed {} points".format(cnt))
+
+            data = p.arrays[0]
+            output = copy.deepcopy(p.arrays[0])
+            points = np.vstack((data['X'], data['Y'], data['Z'])).T.astype(np.float32)
+
+            # This bit is ugly. And all the more reason to move the data reading to a central location. Is
+            # there a way we can somehow capture the features in the config too? Also, we had to leave off
+            # verticality because it broke some assumptions about features in the guts of Open3D.
+            feat = np.vstack((data['Linearity'],data['Planarity'],data['Scattering'])).T.astype(np.float32)
+            labels = np.zeros((points.shape[0],), dtype=np.int32)
+
+            data = {'point': points, 'feat': feat, 'label': labels}
+
+            # run inference on a single example.
+            # returns dict with 'predict_labels' and 'predict_scores'.
+            result = pipeline.run_inference(data)
+            # We require predict_labels, but predict_scores as an extra dim could also be quite interesting.
+            labels = result['predict_labels']
+            labels[np.where(labels==5)]=17
+            labels[np.where(labels==4)]=9
+            labels[np.where(labels==3)]=6
+            labels[np.where(labels==2)]=5
+            labels[np.where(labels==1)]=2
+            output['Classification'] = labels
+            # output['Scores'] = result['predict_scores']
+            dataset.write_result(args.output, output)
+
+if __name__ == '__main__':
+    main()

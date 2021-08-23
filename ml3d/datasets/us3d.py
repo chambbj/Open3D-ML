@@ -18,11 +18,6 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# Expect point clouds to be in npy format with train, val and test files in separate folders.
-# Expected format of npy files : ['x', 'y', 'z', 'class', 'feat_1', 'feat_2', ........,'feat_n'].
-# For test files, format should be : ['x', 'y', 'z', 'feat_1', 'feat_2', ........,'feat_n'].
-
-
 class US3DSplit(BaseDatasetSplit):
     """This class is used to create a custom dataset split.
 
@@ -56,52 +51,30 @@ class US3DSplit(BaseDatasetSplit):
         print("Reading {}".format(pc_path))
 
         p = pdal.Pipeline(json.dumps([
-            # {
-            #     "type":"readers.text",
-            #     "header":"X,Y,Z,Intensity,ReturnNumber",
-            #     "filename":pc_path,
-            # },
             pc_path,
             {
                 "type":"filters.covariancefeatures"
-            # },
-            # {
-            #     "type":"filters.randomize"
-            # },
-            # {
-            #     "type":"filters.head",
-            #     "count":100
-            # }
-            # {
-            #     "type":"filters.sample",
-            #     "radius":1.0
             }
         ]))
         cnt = p.execute()
         print("Processed {} points".format(cnt))
 
         data = p.arrays[0]
-        # data = np.load(pc_path)
         
         points = np.vstack((data['X'], data['Y'], data['Z'])).T.astype(np.float32)
-        # points = np.array(data[:, :3], dtype=np.float32)
 
-        # feat = np.vstack((data['Linearity'],data['Planarity'],data['Scattering'],data['Verticality'])).T.astype(np.float32)
+        # Look into why we couldn't include Verticality.
         feat = np.vstack((data['Linearity'],data['Planarity'],data['Scattering'])).T.astype(np.float32)
 
         if (self.split != 'test'):
             labels = data['Classification'].astype(np.int32)
-            # labels = np.genfromtxt(pc_path.replace("_PC3", "_CLS"), dtype=np.int32)
+            # Want to avoid this remapping in the future.
             labels[np.where(labels==2)]=1
             labels[np.where(labels==5)]=2
             labels[np.where(labels==6)]=3
             labels[np.where(labels==9)]=4
             labels[np.where(labels==17)]=5
-            # labels = np.array(data[:, 3], dtype=np.int32)
-            # feat = data[:, 4:] if data.shape[1] > 4 else None
         else:
-            # feat = np.array(data[:, 3:],
-            #                 dtype=np.float32) if data.shape[1] > 3 else None
             labels = np.zeros((points.shape[0],), dtype=np.int32)
 
         data = {'point': points, 'feat': feat, 'label': labels}
@@ -178,6 +151,7 @@ class US3D(BaseDataset):
             A dict where keys are label numbers and
             values are the corresponding names.
         """
+        # Need to clean this up such that we can use the actual, sparse labels.
         label_to_names = {
             0: 'Unclassified',
             1: 'Ground',
@@ -264,27 +238,18 @@ class US3D(BaseDataset):
         make_dir(path)
 
         pred = results['predict_labels']
-        # pred = np.array(self.label_to_names[pred])
         pred = np.array(pred)
 
         store_path = join(path, name + '.npy')
         np.save(store_path, pred)
 
-    def write_result(self, data, labels):
-        array = np.core.records.fromarrays(np.vstack((data.T,labels.T)),names='X,Y,Z,Classification',formats='f8,f8,f8,u1')
+    # Need to modify such that we can either pass the desired filename or construct it from the input.
+    def write_result(self, filename, data):
         p = pdal.Pipeline(json.dumps([{
             "type":"writers.las",
-            "filename":'/home/chambbj/data/sandbox/randlanet.laz',
-            # "offset_x":"auto",
-            # "offset_y":"auto",
-            # "offset_z":"auto",
-            # "scale_x":0.01,
-            # "scale_y":0.01,
-            # "scale_z":0.01
-            "forward":"all",
-            "minor_version":4,
-            "extra_dims":"all"
-            }]), [array])
+            "filename":filename,
+            "forward":"all"
+            }]), [data])
         p.validate()
         p.execute()
 
