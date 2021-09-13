@@ -18,7 +18,7 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-class US3DSplit(BaseDatasetSplit):
+class AHN3Split(BaseDatasetSplit):
     """This class is used to create a custom dataset split.
 
     Initialize the class.
@@ -64,14 +64,16 @@ class US3DSplit(BaseDatasetSplit):
         points = np.vstack((data['X'], data['Y'], data['Z'])).T.astype(np.float32)
 
         # Look into why we couldn't include Verticality.
-        feat = np.vstack((data['Linearity'],data['Planarity'],data['Scattering'],data['Verticality'])).T.astype(np.float32)
-        # feat = np.vstack((data['X'], data['Y'], data['Z'])).T.astype(np.float32)
-        # feat = np.vstack((data['ReturnNumber'],data['Intensity'])).T.astype(np.float32)
+        feat = np.vstack((data['Linearity'],data['Planarity'],data['Scattering'])).T.astype(np.float32)
 
         if (self.split != 'test'):
             labels = data['Classification'].astype(np.int32)
-            labels[np.isin(labels,[2, 6],invert=True)]=0
-            labels = [self.dataset.label_to_idx[label] for label in labels]
+            # Want to avoid this remapping in the future.
+            labels[np.where(labels==1)]=0
+            labels[np.where(labels==2)]=1
+            labels[np.where(labels==6)]=2
+            labels[np.where(labels==9)]=3
+            labels[np.where(labels==26)]=4
         else:
             labels = np.zeros((points.shape[0],), dtype=np.int32)
 
@@ -88,7 +90,7 @@ class US3DSplit(BaseDatasetSplit):
         return attr
 
 
-class US3D(BaseDataset):
+class AHN3(BaseDataset):
     """A template for customized dataset that you can use with a dataloader to
     feed data when training a model. This inherits all functions from the base
     dataset and can be modified by users. Initialize the function by passing the
@@ -106,7 +108,7 @@ class US3D(BaseDataset):
 
     def __init__(self,
                  dataset_path,
-                 name='US3D',
+                 name='AHN3',
                  cache_dir='./logs/cache',
                  use_cache=False,
                  num_points=65536,
@@ -152,12 +154,10 @@ class US3D(BaseDataset):
         # Need to clean this up such that we can use the actual, sparse labels.
         label_to_names = {
             0: 'Unclassified',
-            2: 'Ground',
-            6: 'Building'
-            # 2: 'Vegetation',
-            # 3: 'Building',
-            # 4: 'Water',
-            # 5: 'Bridge'
+            1: 'Ground',
+            2: 'Building',
+            3: 'Water',
+            4: 'UrbanEntity'
         }
         return label_to_names
 
@@ -171,7 +171,7 @@ class US3D(BaseDataset):
         Returns:
             A dataset split object providing the requested subset of the data.
         """
-        return US3DSplit(self, split=split)
+        return AHN3Split(self, split=split)
 
     def get_split_list(self, split):
         """Returns a dataset split.
@@ -252,4 +252,4 @@ class US3D(BaseDataset):
         p.validate()
         p.execute()
 
-DATASET._register_module(US3D)
+DATASET._register_module(AHN3)

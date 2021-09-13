@@ -699,26 +699,33 @@ class KPFCNN(BaseModel):
             stacked_colors = stacked_colors * tf.expand_dims(stacked_s, axis=1)
 
         # Then use positions or not
+        # 1 => use just the column of ones
         if cfg.in_features_dim == 1:
             pass
+        # 2=> column of ones plus original elevations (height above ground, if ground available, is also interesting)
         elif cfg.in_features_dim == 2:
             stacked_features = tf.concat(
                 (stacked_features, stacked_original_coordinates[:, 2:]), axis=1)
+        # 3 => "colors" can be misleading, could just be next three features, which they originally assumed to be RGB, no column of ones
         elif cfg.in_features_dim == 3:
             stacked_features = stacked_colors
+        # 4 => column of ones plus next three features, maybe RGB
         elif cfg.in_features_dim == 4:
             stacked_features = tf.concat((stacked_features, stacked_colors),
                                          axis=1)
+        # 5 => column of ones, plus elevation/height, plus three features
         elif cfg.in_features_dim == 5:
             stacked_features = tf.concat(
                 (stacked_features, stacked_original_coordinates[:, 2:],
                  stacked_colors),
                 axis=1)
+        # 7 => column of ones, plus original coords, plus three features
         elif cfg.in_features_dim == 7:
             stacked_features = tf.concat(
                 (stacked_features, stacked_original_coordinates,
                  stacked_colors),
                 axis=1)
+        # no case currently for reading in custom features other than RGB
         else:
             raise ValueError(
                 'Only accepted input dimensions are 1, 3, 4 and 7 (without and with rgb/xyz)'

@@ -66,6 +66,13 @@ def main():
             p = pdal.Pipeline(json.dumps([
                 args.input,
                 {
+                    "type":"filters.randomize"
+                },
+                {
+                    "type":"filters.sample",
+                    "radius":0.6
+                },
+                {
                     "type":"filters.covariancefeatures"
                 }
             ]))
@@ -80,7 +87,9 @@ def main():
             # This bit is ugly. And all the more reason to move the data reading to a central location. Is
             # there a way we can somehow capture the features in the config too? Also, we had to leave off
             # verticality because it broke some assumptions about features in the guts of Open3D.
-            feat = np.vstack((data['Linearity'],data['Planarity'],data['Scattering'])).T.astype(np.float32)
+            feat = np.vstack((data['Linearity'],data['Planarity'],data['Scattering'],data['Verticality'])).T.astype(np.float32)
+            # feat = np.vstack((data['X'],data['Y'],data['Z'])).T.astype(np.float32)
+            # feat = np.vstack((data['ReturnNumber'],data['Intensity'])).T.astype(np.float32)
             labels = np.zeros((points.shape[0],), dtype=np.int32)
 
             data = {'point': points, 'feat': feat, 'label': labels}
@@ -88,14 +97,9 @@ def main():
             # run inference on a single example.
             # returns dict with 'predict_labels' and 'predict_scores'.
             result = pipeline.run_inference(data)
-            # We require predict_labels, but predict_scores as an extra dim could also be quite interesting.
             labels = result['predict_labels']
-            labels[np.where(labels==5)]=17
-            labels[np.where(labels==4)]=9
-            labels[np.where(labels==3)]=6
-            labels[np.where(labels==2)]=5
-            labels[np.where(labels==1)]=2
-            output['Classification'] = labels
+            output['Classification'] = [dataset.label_values[label] for label in labels]
+            # We require predict_labels, but predict_scores as an extra dim could also be quite interesting.
             # output['Scores'] = result['predict_scores']
             dataset.write_result(args.output, output)
 
