@@ -440,3 +440,18 @@ Please cite our work ([pdf](https://arxiv.org/abs/1801.09847)) if you use Open3D
     year      = {2018},
 }
 ```
+
+
+## US3D
+
+### Training
+
+```
+python scripts/run_pipeline.py tf -c ml3d/configs/randlanet_us3d_four_class.yml --dataset.dataset_path ~/data/ml-datasets/US3D/train-single-file-prototype-kpconv/ --pipeline SemanticSegmentation --dataset.use_cache True
+```
+
+### Prediction
+
+```
+python scripts/inference_us3d.py ~/data/filiano/Dominic\ Filiano\ -\ 2021-05-11-LAFS\ -\ 210511_193416_Scanner_1.laz ~/data/filiano/randlanet_lpsv_sampled.laz -c ml3d/configs/randlanet_us3d_three_class.yml --ckpt_path three-class-log-lpsv/RandLANet_US3D_tf/checkpoint/ckpt-21
+```

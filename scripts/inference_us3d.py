@@ -40,9 +40,16 @@ def main():
         # Config file can perhaps default, but we should accept as an arg.
         # cfg_file = "ml3d/configs/randlanet_us3d.yml"
         cfg = _ml3d.utils.Config.load_from_file(args.cfg_file)
+        # print("Config\n======")
+        # cfg.dataset.cache_dir = "/home/chambbj/code/Open3D-ML/logs/cache_threeclass_irn/"
+        # cfg.model.dim_input = 5
+        # print(cfg.dataset.cache_dir)
+        # print(cfg.model.dim_input)
 
         # Surely we can determine this by inspecting the config. Is there a more general purpose way to load?
         model = ml3d.models.RandLANet(**cfg.model)
+        # print("Model\n=====")
+        # print(model.dim_input)
         # model = ml3d.models.KPFCNN(**cfg.model)
 
         # Could we get away with None? How is it even used in this context? Nope, it's required.
@@ -51,6 +58,9 @@ def main():
 
         # Similarly, this assumes US3D. What happens when we change it? The config tells us what dataset is used.
         dataset = ml3d.datasets.US3D(cfg.dataset.pop('dataset_path', None), **cfg.dataset)
+
+        dataset.cache_dir = cfg.dataset.cache_dir
+        model.dim_input = cfg.model.dim_input
 
         pipeline = ml3d.pipelines.SemanticSegmentation(model, dataset=dataset, device="gpu", **cfg.pipeline)
 
@@ -65,13 +75,13 @@ def main():
             # Regardless, the path should not be hardcoded. It will be provided as a parameter.
             p = pdal.Pipeline(json.dumps([
                 args.input,
-                {
-                    "type":"filters.randomize"
-                },
-                {
-                    "type":"filters.sample",
-                    "radius":0.6
-                },
+                # {
+                #     "type":"filters.randomize"
+                # },
+                # {
+                #     "type":"filters.sample",
+                #     "radius":0.6
+                # },
                 {
                     "type":"filters.covariancefeatures"
                 }

@@ -51,10 +51,11 @@ class US3DSplit(BaseDatasetSplit):
         print("Reading {}".format(pc_path))
 
         p = pdal.Pipeline(json.dumps([
-            pc_path,
-            {
-                "type":"filters.covariancefeatures"
-            }
+            pc_path
+            # ,
+            # {
+            #     "type":"filters.covariancefeatures"
+            # }
         ]))
         cnt = p.execute()
         print("Processed {} points".format(cnt))
@@ -64,13 +65,13 @@ class US3DSplit(BaseDatasetSplit):
         points = np.vstack((data['X'], data['Y'], data['Z'])).T.astype(np.float32)
 
         # Look into why we couldn't include Verticality.
-        feat = np.vstack((data['Linearity'],data['Planarity'],data['Scattering'],data['Verticality'])).T.astype(np.float32)
+        # feat = np.vstack((data['Linearity'],data['Planarity'],data['Scattering'],data['Verticality'])).T.astype(np.float32)
         # feat = np.vstack((data['X'], data['Y'], data['Z'])).T.astype(np.float32)
-        # feat = np.vstack((data['ReturnNumber'],data['Intensity'])).T.astype(np.float32)
+        feat = np.vstack((data['ReturnNumber'],data['Intensity'])).T.astype(np.float32)
 
         if (self.split != 'test'):
             labels = data['Classification'].astype(np.int32)
-            labels[np.isin(labels,[2, 6],invert=True)]=0
+            labels[np.isin(labels,[2, 5, 6],invert=True)]=0
             labels = [self.dataset.label_to_idx[label] for label in labels]
         else:
             labels = np.zeros((points.shape[0],), dtype=np.int32)
@@ -153,11 +154,10 @@ class US3D(BaseDataset):
         label_to_names = {
             0: 'Unclassified',
             2: 'Ground',
-            6: 'Building'
-            # 2: 'Vegetation',
-            # 3: 'Building',
-            # 4: 'Water',
-            # 5: 'Bridge'
+            5: 'Vegetation',
+            6: 'Building',
+            # 9: 'Water',
+            # 17: 'Bridge',
         }
         return label_to_names
 
