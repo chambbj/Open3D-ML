@@ -377,11 +377,13 @@ class KPConv(tf.keras.layers.Layer):
                 "Unknown convolution mode. Should be 'closest' or 'sum'")
 
         features = tf.concat([features, tf.zeros_like(features[:1, :])], axis=0)
+        print("features shape",features.shape)
 
         # Get the features of each neighborhood [n_points, n_neighbors, in_fdim]
         neighborhood_features = tf.gather(features,
                                           new_neighbors_indices,
                                           axis=0)
+        print("neighborhood features shape", neighborhood_features.shape)
 
         # Apply distance weights [n_points, n_kpoints, in_fdim]
         weighted_features = tf.matmul(all_weights, neighborhood_features)

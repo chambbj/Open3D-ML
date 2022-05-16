@@ -50,24 +50,46 @@ class US3DSplit(BaseDatasetSplit):
         pc_path = self.path_list[idx]
         print("Reading {}".format(pc_path))
 
-        p = pdal.Pipeline(json.dumps([
-            pc_path
-            # ,
-            # {
-            #     "type":"filters.covariancefeatures"
-            # }
-        ]))
+        p = pdal.Pipeline(json.dumps([{"type":"readers.las","filename":pc_path,"use_eb_vlr":True}]))
         cnt = p.execute()
         print("Processed {} points".format(cnt))
 
         data = p.arrays[0]
         
         points = np.vstack((data['X'], data['Y'], data['Z'])).T.astype(np.float32)
+        # print(points.shape)
+
+        # dz = np.zeros((len(data['X'])))
+        # marked = np.zeros((len(data['X'])))
+        # print(len(data['X']))
+        # for i in range(len(data['X'])):
+        #     if marked[i]>0:
+        #         continue
+        #     t = data['GpsTime'][i]
+        #     # print(i, marked[i], t)
+        #     idx = np.where(data['GpsTime']==t)[0]
+        #     # print(idx)
+        #     # dz[i] = data['Z'][i] - data['Z'][idx].min()
+        #     dz[idx] = data['Z'][idx] - data['Z'][idx].min()
+        #     marked[idx] = 1
+        #     print(np.sum(marked))
+
+        print(np.max(data['ReturnNumber']), np.max(data['NumberOfReturns']))
+        print(np.max(data['ReturnNumber']-1), np.max(data['NumberOfReturns']-1))
+        rn = np.eye(5)[data['ReturnNumber']-1]
+        nr = np.eye(5)[data['NumberOfReturns']-1]
+        dz = (data['DeltaZ'] - 1.967377673) / 4.567553495
+        print(np.max(dz), np.max(data['ReturnNumber']), np.max(data['NumberOfReturns']))
+        print(np.min(dz), np.max(data['ReturnNumber']-1), np.max(data['NumberOfReturns']-1))
+
+        print(rn.shape, nr.shape, dz[:, None].shape)
 
         # Look into why we couldn't include Verticality.
         # feat = np.vstack((data['Linearity'],data['Planarity'],data['Scattering'],data['Verticality'])).T.astype(np.float32)
         # feat = np.vstack((data['X'], data['Y'], data['Z'])).T.astype(np.float32)
-        feat = np.vstack((data['ReturnNumber'],data['Intensity'])).T.astype(np.float32)
+        # feat = np.vstack((data['ReturnNumber'],data['Intensity'])).T.astype(np.float32)
+        feat = np.concatenate((rn.T,nr.T,dz[:, None].T)).T.astype(np.float32)
+        print(feat.shape)
 
         if (self.split != 'test'):
             labels = data['Classification'].astype(np.int32)

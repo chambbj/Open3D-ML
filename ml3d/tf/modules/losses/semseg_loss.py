@@ -24,6 +24,7 @@ class SemSegLoss(object):
         else:
             # calculate the weighted cross entropy according to the inverse frequency
             one_hot_labels = tf.one_hot(labels, depth=self.num_classes)
+            print("weights/labels", self.class_weights.shape, one_hot_labels.shape)
             weights = tf.reduce_sum(self.class_weights * one_hot_labels, axis=1)
             unweighted_losses = tf.nn.softmax_cross_entropy_with_logits(
                 logits=logits, labels=one_hot_labels)
@@ -34,6 +35,7 @@ class SemSegLoss(object):
 
     def filter_valid_label(self, scores, labels):
         """Filter out invalid points."""
+        print(self.num_classes,scores.shape)
         logits = tf.reshape(scores, [-1, self.num_classes])
         labels = tf.reshape(labels, [-1])
 

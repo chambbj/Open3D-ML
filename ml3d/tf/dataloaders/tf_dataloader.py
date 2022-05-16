@@ -99,22 +99,28 @@ class TFDataloader():
          - If preprocess is available, then gets the preprocessed dataset and then the data.
          - If cache or preprocess is not available, then get the data from the dataset.
         """
+        print("read_data",index)
         attr = self.dataset.get_attr(index)
+        print(attr)
         if self.cache_convert:
             data = self.cache_convert(attr['name'])
         elif self.preprocess:
             data = self.preprocess(self.dataset.get_data(index), attr)
         else:
             data = self.dataset.get_data(index)
+        print(data['point'].shape,data['feat'].shape)
 
         return data, attr
 
     def __getitem__(self, index):
         """Returns the item at index position (idx)."""
+        print("__getitem__",index)
         dataset = self.dataset
         index = index % len(dataset)
 
         data, attr = self.read_data(index)
+
+        print("tf_dataloader", index, data.shape, attr.shape)
 
         if self.transform is not None:
             data = self.transform(data, attr)

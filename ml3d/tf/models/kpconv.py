@@ -325,6 +325,7 @@ class KPFCNN(BaseModel):
 
         scores, labels = Loss.filter_valid_label(logits, labels)
 
+        print("scores/labels", scores.shape, labels.shape)
         loss = Loss.weighted_CrossEntropyLoss(scores, labels)
         loss += sum(self.losses)
 
@@ -677,6 +678,8 @@ class KPFCNN(BaseModel):
         # Get batch indice for each point
         batch_inds = self.get_batch_inds(stacks_lengths)
 
+        print(stacked_colors.shape)
+
         # Augment input points
         stacked_points, scales, rots = self.augment_input(
             stacked_points, batch_inds, is_test)
@@ -688,6 +691,7 @@ class KPFCNN(BaseModel):
         # Get coordinates and colors
         stacked_original_coordinates = stacked_colors[:, :3]
         stacked_colors = stacked_colors[:, 3:]
+        print(stacked_colors.shape)
 
         # Augmentation : randomly drop colors
         if cfg.in_features_dim in [4, 5]:
@@ -725,6 +729,10 @@ class KPFCNN(BaseModel):
                 (stacked_features, stacked_original_coordinates,
                  stacked_colors),
                 axis=1)
+        elif cfg.in_features_dim == 12:
+            print("arrived here with stacked_colors shape", stacked_colors.shape)
+            stacked_features = tf.concat((stacked_features, stacked_colors),
+                                         axis=1)
         # no case currently for reading in custom features other than RGB
         else:
             raise ValueError(
@@ -860,6 +868,8 @@ class KPFCNN(BaseModel):
         point_inds = np.concatenate(pi_list, axis=0),
         cloud_inds = np.array(ci_list, dtype=np.int32)
 
+        print("xform_inference", stacked_points.shape, stacked_colors.shape)
+
         input_list = self.transform(
             tf.convert_to_tensor(np.array(stacked_points[0], dtype=np.float32)),
             tf.convert_to_tensor(np.array(stacked_colors[0], dtype=np.float32)),
@@ -918,10 +928,11 @@ class KPFCNN(BaseModel):
     def get_batch_gen(self, dataset, steps_per_epoch=None, batch_size=1):
 
         cfg = self.cfg
+        print("get_batch_gen", dataset.read_data(0)[0]['feat'].shape[1]+3)
         if dataset.read_data(0)[0]['feat'] is None:
             dim_features = 3
         else:
-            dim_features = 6
+            dim_features = dataset.read_data(0)[0]['feat'].shape[1]+3
 
         def spatially_regular_gen():
 
